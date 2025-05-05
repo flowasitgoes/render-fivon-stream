@@ -1,5 +1,5 @@
 const express = require('express');
-const got = require('got');
+const fetch = require('node-fetch');
 const cors = require('cors');
 
 const app = express();
@@ -21,44 +21,28 @@ app.get('/upload', async (req, res) => {
   console.log('YouTube Upload URL:', youtubeUploadUrl);
 
   try {
-    const driveStream = got.stream(driveUrl, {
-      timeout: {
-        request: 600_000 // 10 分鐘下載超時
-      }
-    });
+    // 取得 Google Drive 檔案的 stream
+    const response = await fetch(driveUrl);
+    if (!response.ok) throw new Error('Failed to fetch from Google Drive: ' + response.statusText);
 
-    let uploadedBytes = 0;
-    let lastProgressLog = Date.now();
+    // 取得 content-length
+    const contentLength = response.headers.get('content-length');
 
-    driveStream.on('data', (chunk) => {
-      uploadedBytes += chunk.length;
-      const now = Date.now();
-      // 每 5 秒記錄一次進度，避免過多日誌
-      if (now - lastProgressLog >= 5000) {
-        console.log(`Uploaded ${(uploadedBytes / 1024 / 1024).toFixed(2)} MB`);
-        lastProgressLog = now;
-      }
-    });
-
-    const putResponse = await got.put(youtubeUploadUrl, {
-      body: driveStream,
+    // 直接串流 PUT 到 YouTube
+    const uploadRes = await fetch(youtubeUploadUrl, {
+      method: 'PUT',
       headers: {
-        'Content-Type': 'video/quicktime',
-        'Content-Length': driveStream.headers['content-length'] || '0',
-        'Transfer-Encoding': 'chunked'
+        'Content-Type': 'video/mp4', // 根據實際格式調整
+        ...(contentLength ? { 'Content-Length': contentLength } : {})
       },
-      timeout: {
-        request: 1800_000 // 30 分鐘上傳超時
-      },
-      retry: {
-        limit: 5, // 增加重試次數
-        methods: ['PUT'],
-        statusCodes: [408, 413, 429, 500, 502, 503, 504],
-        maxRetryAfter: 10000 // 最多等待 10 秒後重試
-      }
+      body: response.body,
     });
 
-    console.log('Upload completed successfully');
+    if (!uploadRes.ok) {
+      const errText = await uploadRes.text();
+      throw new Error('Upload failed: ' + errText);
+    }
+
     res.status(200).send('Upload success');
   } catch (err) {
     console.error('Upload failed:', err.message);
