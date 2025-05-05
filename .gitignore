@@ -1,0 +1,22 @@
+# 媒体文件
+*.mp3
+*.mov
+*.png
+*.jpg
+
+# Node.js
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo 
