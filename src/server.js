@@ -9,7 +9,7 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Google Drive confirm token 處理
+// Google Drive confirm token 流程
 async function getGoogleDriveStream(driveUrl) {
   const urlObj = new URL(driveUrl);
   const fileId = urlObj.searchParams.get('id');
