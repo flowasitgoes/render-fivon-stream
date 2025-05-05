@@ -15,8 +15,8 @@ async function getGoogleDriveStream(driveUrl) {
   const fileId = urlObj.searchParams.get('id');
   let url = `https://drive.google.com/uc?export=download&id=${fileId}`;
 
-  // 第一次請求
-  let res = await fetch(url, { redirect: 'manual' });
+  // 第一次請求（允許自動跟隨 redirect）
+  let res = await fetch(url); // 預設 redirect: 'follow'
   let contentType = res.headers.get('content-type');
   if (contentType && contentType.startsWith('text/html')) {
     // 解析 confirm token
