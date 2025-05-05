@@ -24,9 +24,9 @@ async function getGoogleDriveStream(driveUrl) {
     const match = text.match(/confirm=([0-9A-Za-z_]+)&/);
     if (!match) throw new Error('找不到 confirm token，無法下載大檔案');
     const confirm = match[1];
-    // 第二次請求
+    // 第二次請求（允許自動跟隨 redirect）
     url = `https://drive.google.com/uc?export=download&confirm=${confirm}&id=${fileId}`;
-    res = await fetch(url, { redirect: 'manual' });
+    res = await fetch(url); // 預設 redirect: 'follow'
   }
   return res;
 }
