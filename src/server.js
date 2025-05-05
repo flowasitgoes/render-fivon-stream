@@ -21,6 +21,7 @@ async function getGoogleDriveStream(driveUrl) {
   if (contentType && contentType.startsWith('text/html')) {
     // 解析 confirm token
     const text = await res.text();
+    console.log('Google Drive HTML:', text.slice(0, 1000));
     const match = text.match(/confirm=([0-9A-Za-z_]+)&/);
     if (!match) throw new Error('找不到 confirm token，無法下載大檔案');
     const confirm = match[1];
