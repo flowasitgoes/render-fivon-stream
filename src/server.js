@@ -9,6 +9,28 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// Google Drive confirm token 處理
+async function getGoogleDriveStream(driveUrl) {
+  const urlObj = new URL(driveUrl);
+  const fileId = urlObj.searchParams.get('id');
+  let url = `https://drive.google.com/uc?export=download&id=${fileId}`;
+
+  // 第一次請求
+  let res = await fetch(url, { redirect: 'manual' });
+  let contentType = res.headers.get('content-type');
+  if (contentType && contentType.startsWith('text/html')) {
+    // 解析 confirm token
+    const text = await res.text();
+    const match = text.match(/confirm=([0-9A-Za-z_]+)&/);
+    if (!match) throw new Error('找不到 confirm token，無法下載大檔案');
+    const confirm = match[1];
+    // 第二次請求
+    url = `https://drive.google.com/uc?export=download&confirm=${confirm}&id=${fileId}`;
+    res = await fetch(url, { redirect: 'manual' });
+  }
+  return res;
+}
+
 app.get('/upload', async (req, res) => {
   const { driveUrl, youtubeUploadUrl, fileType } = req.query;
 
@@ -21,8 +43,8 @@ app.get('/upload', async (req, res) => {
   console.log('YouTube Upload URL:', youtubeUploadUrl);
 
   try {
-    // 取得 Google Drive 檔案的 stream
-    const response = await fetch(driveUrl);
+    // 取得 Google Drive 檔案的 stream（自動處理 confirm token）
+    const response = await getGoogleDriveStream(driveUrl);
     console.log('Google Drive response status:', response.status, response.statusText);
 
     if (!response.ok) {
