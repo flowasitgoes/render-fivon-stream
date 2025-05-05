@@ -32,6 +32,24 @@ async function getGoogleDriveStream(driveUrl) {
   return res;
 }
 
+// Dropbox 連結自動轉換
+function normalizeDropboxUrl(url) {
+  if (url.includes('dropbox.com')) {
+    // 移除舊的 dl 參數，強制加上 dl=1
+    if (url.includes('dl=0')) {
+      return url.replace('dl=0', 'dl=1');
+    } else if (!url.includes('dl=1')) {
+      // 沒有 dl 參數，補上 dl=1
+      if (url.includes('?')) {
+        return url + '&dl=1';
+      } else {
+        return url + '?dl=1';
+      }
+    }
+  }
+  return url;
+}
+
 app.get('/upload', async (req, res) => {
   const { driveUrl, youtubeUploadUrl, fileType } = req.query;
 
@@ -44,8 +62,12 @@ app.get('/upload', async (req, res) => {
   console.log('YouTube Upload URL:', youtubeUploadUrl);
 
   try {
-    // 取得 Google Drive 檔案的 stream（自動處理 confirm token）
-    const response = await getGoogleDriveStream(driveUrl);
+    // 先處理 Dropbox 連結
+    const normalizedDriveUrl = normalizeDropboxUrl(driveUrl);
+    // 取得 Google Drive 或 Dropbox 檔案的 stream（自動處理 confirm token）
+    const response = normalizedDriveUrl.includes('dropbox.com')
+      ? await fetch(normalizedDriveUrl)
+      : await getGoogleDriveStream(normalizedDriveUrl);
     console.log('Google Drive response status:', response.status, response.statusText);
 
     if (!response.ok) {
