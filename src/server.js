@@ -23,11 +23,18 @@ app.get('/upload', async (req, res) => {
   try {
     // 取得 Google Drive 檔案的 stream
     const response = await fetch(driveUrl);
+    console.log('Google Drive response status:', response.status, response.statusText);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Google Drive fetch failed, body:', errorText);
+      throw new Error('Failed to fetch from Google Drive: ' + response.statusText);
+    }
+
     console.log('Google Drive response headers:');
     for (const [key, value] of response.headers.entries()) {
       console.log(`${key}: ${value}`);
     }
-    if (!response.ok) throw new Error('Failed to fetch from Google Drive: ' + response.statusText);
 
     // 取得 content-length
     const contentLength = response.headers.get('content-length');
