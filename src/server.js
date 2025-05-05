@@ -10,7 +10,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 app.get('/upload', async (req, res) => {
-  const { driveUrl, youtubeUploadUrl } = req.query;
+  const { driveUrl, youtubeUploadUrl, fileType } = req.query;
 
   if (!driveUrl || !youtubeUploadUrl) {
     return res.status(400).send('Missing driveUrl or youtubeUploadUrl');
@@ -39,11 +39,18 @@ app.get('/upload', async (req, res) => {
     // 取得 content-length
     const contentLength = response.headers.get('content-length');
 
+    // 動態決定 Content-Type
+    let contentType = response.headers.get('content-type');
+    if (fileType === 'mov') contentType = 'video/quicktime';
+    else if (fileType === 'mp4') contentType = 'video/mp4';
+    else if (!contentType || !contentType.startsWith('video/')) contentType = 'video/mp4';
+    console.log('Final upload Content-Type:', contentType);
+
     // 直接串流 PUT 到 YouTube
     const uploadRes = await fetch(youtubeUploadUrl, {
       method: 'PUT',
       headers: {
-        'Content-Type': 'video/mp4', // 根據實際格式調整
+        'Content-Type': contentType,
         ...(contentLength ? { 'Content-Length': contentLength } : {})
       },
       body: response.body,
