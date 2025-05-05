@@ -88,7 +88,7 @@ app.get('/upload', async (req, res) => {
     let contentType = response.headers.get('content-type');
     if (fileType === 'mov') contentType = 'video/quicktime';
     else if (fileType === 'mp4') contentType = 'video/mp4';
-    else if (!contentType || !contentType.startsWith('video/')) contentType = 'video/mp4';
+    else if (!contentType || !contentType.startsWith('video/')) contentType = 'video/quicktime'; // 預設 mov
     console.log('Final upload Content-Type:', contentType);
 
     // 直接串流 PUT 到 YouTube
