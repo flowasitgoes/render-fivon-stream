@@ -9,6 +9,9 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// 存储上传任务状态
+const uploadTasks = new Map();
+
 // Google Drive confirm token 流程
 async function getGoogleDriveStream(driveUrl) {
   const urlObj = new URL(driveUrl);
@@ -50,48 +53,30 @@ function normalizeDropboxUrl(url) {
   return url;
 }
 
-app.get('/upload', async (req, res) => {
-  const { driveUrl, youtubeUploadUrl, fileType } = req.query;
-
-  if (!driveUrl || !youtubeUploadUrl) {
-    return res.status(400).send('Missing driveUrl or youtubeUploadUrl');
-  }
-
-  console.log('Starting upload process...');
-  console.log('Drive URL:', driveUrl);
-  console.log('YouTube Upload URL:', youtubeUploadUrl);
-
+// 异步上传处理函数
+async function processUpload(taskId, driveUrl, youtubeUploadUrl, fileType) {
+  const startTime = new Date();
+  console.log(`[${taskId}] 开始下载时间: ${startTime.toISOString()}`);
+  
   try {
-    // 先處理 Dropbox 連結
     const normalizedDriveUrl = normalizeDropboxUrl(driveUrl);
-    // 取得 Google Drive 或 Dropbox 檔案的 stream（自動處理 confirm token）
     const response = normalizedDriveUrl.includes('dropbox.com')
       ? await fetch(normalizedDriveUrl)
       : await getGoogleDriveStream(normalizedDriveUrl);
-    console.log('Google Drive response status:', response.status, response.statusText);
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Google Drive fetch failed, body:', errorText);
-      throw new Error('Failed to fetch from Google Drive: ' + response.statusText);
+      throw new Error('Failed to fetch from source: ' + response.statusText);
     }
 
-    console.log('Google Drive response headers:');
-    for (const [key, value] of response.headers.entries()) {
-      console.log(`${key}: ${value}`);
-    }
-
-    // 取得 content-length
     const contentLength = response.headers.get('content-length');
-
-    // 動態決定 Content-Type
     let contentType = response.headers.get('content-type');
     if (fileType === 'mov') contentType = 'video/quicktime';
     else if (fileType === 'mp4') contentType = 'video/mp4';
-    else if (!contentType || !contentType.startsWith('video/')) contentType = 'video/quicktime'; // 預設 mov
-    console.log('Final upload Content-Type:', contentType);
+    else if (!contentType || !contentType.startsWith('video/')) contentType = 'video/quicktime';
 
-    // 直接串流 PUT 到 YouTube
+    const uploadStartTime = new Date();
+    console.log(`[${taskId}] 开始上传时间: ${uploadStartTime.toISOString()}`);
+
     const uploadRes = await fetch(youtubeUploadUrl, {
       method: 'PUT',
       headers: {
@@ -101,26 +86,67 @@ app.get('/upload', async (req, res) => {
       body: response.body,
     });
 
+    const uploadEndTime = new Date();
+    console.log(`[${taskId}] 上传结束时间: ${uploadEndTime.toISOString()}`);
+
     if (!uploadRes.ok) {
       const errText = await uploadRes.text();
       throw new Error('Upload failed: ' + errText);
     }
 
-    res.status(200).send('Upload success');
-  } catch (err) {
-    console.error('Upload failed:', err.message);
-    console.error('Error details:', err);
-    
-    if (err.code === 'ETIMEDOUT') {
-      return res.status(504).send('Upload timeout');
-    }
-    
-    if (err.code === 'ECONNRESET') {
-      return res.status(503).send('Connection reset, please try again');
-    }
-    
-    res.status(500).send('Upload failed: ' + err.message);
+    uploadTasks.set(taskId, {
+      status: 'completed',
+      startTime,
+      uploadStartTime,
+      uploadEndTime,
+      result: 'success'
+    });
+
+  } catch (error) {
+    console.error(`[${taskId}] 上传失败:`, error);
+    uploadTasks.set(taskId, {
+      status: 'failed',
+      startTime,
+      error: error.message
+    });
   }
+}
+
+app.get('/upload', async (req, res) => {
+  const { driveUrl, youtubeUploadUrl, fileType } = req.query;
+
+  if (!driveUrl || !youtubeUploadUrl) {
+    return res.status(400).send('Missing driveUrl or youtubeUploadUrl');
+  }
+
+  const taskId = Date.now().toString();
+  console.log(`[${taskId}] 收到新的上传请求`);
+  console.log(`[${taskId}] Drive URL:`, driveUrl);
+  console.log(`[${taskId}] YouTube Upload URL:`, youtubeUploadUrl);
+
+  // 立即返回任务ID
+  res.status(202).json({
+    taskId,
+    message: 'Upload task started',
+    status: 'processing'
+  });
+
+  // 异步处理上传
+  processUpload(taskId, driveUrl, youtubeUploadUrl, fileType);
+});
+
+// 新增状态查询接口
+app.get('/status/:taskId', (req, res) => {
+  const { taskId } = req.params;
+  const task = uploadTasks.get(taskId);
+  
+  if (!task) {
+    return res.status(404).json({
+      error: 'Task not found'
+    });
+  }
+
+  res.json(task);
 });
 
 const PORT = process.env.PORT || 3000;
