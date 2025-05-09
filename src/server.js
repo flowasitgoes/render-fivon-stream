@@ -149,5 +149,14 @@ app.get('/status/:taskId', (req, res) => {
   res.json(task);
 });
 
+// 健康檢查用 endpoint，讓 Render 的冷啟動有地方回應
+app.get('/', (req, res) => {
+  res.status(200).send('OK');
+});
+
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'alive', time: new Date().toISOString() });
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Uploader server running on port ${PORT}`));
