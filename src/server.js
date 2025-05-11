@@ -12,7 +12,7 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 // 存储上传任务状态
 const uploadTasks = new Map();
 
-const N8N_WEBHOOK_URL = 'https://flowasitgoes.app.n8n.cloud/webhook-test/youtube-upload-callback';
+const N8N_WEBHOOK_URL = 'https://flowasitgoes.app.n8n.cloud/webhook/youtube-upload-callback';
 
 // Google Drive confirm token 流程
 async function getGoogleDriveStream(driveUrl) {
