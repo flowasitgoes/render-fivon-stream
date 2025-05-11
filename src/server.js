@@ -108,17 +108,9 @@ async function processUpload(taskId, driveUrl, youtubeUploadUrl, fileType, uploa
       uploadStartTime,
       uploadEndTime,
       result: 'success',
-      videoId,
-      uploadedFileIndex
+      videoId
     });
-    // 記錄最新成功上傳結果
-    global.lastUploadResult = {
-      videoId,
-      taskId,
-      status: 'completed',
-      uploadedFileIndex,
-      taiwanTimestamp: new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })
-    };
+
     // POST 給 n8n webhook
     if (videoId) {
       try {
@@ -147,6 +139,9 @@ async function processUpload(taskId, driveUrl, youtubeUploadUrl, fileType, uploa
     });
   }
 }
+
+// 全域暫存最近一次 /upload 的 uploadedFileIndex
+global.lastUploadedFileIndex = 10;
 
 app.get('/upload', async (req, res) => {
   const now = new Date();
@@ -182,6 +177,8 @@ app.get('/upload', async (req, res) => {
 
   // 异步处理上传
   processUpload(taskId, driveUrl, youtubeUploadUrl, fileType, uploadedFileIndex);
+
+  global.lastUploadedFileIndex = uploadedFileIndex;
 });
 
 // 新增状态查询接口
@@ -233,19 +230,23 @@ app.get('/health', (req, res) => {
 app.post('/test-webhook', (req, res) => {
   res.status(200).json({ message: 'Webhook test started' });
 
+  // 啟動一個定時器，每20秒發送一次假資料
   if (!global.webhookTestInterval) {
     global.webhookTestInterval = setInterval(async () => {
       try {
-        if (global.lastUploadResult) {
-          await fetch(N8N_WEBHOOK_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(global.lastUploadResult)
-          });
-          console.log('[TEST-WEBHOOK] 已發送最近一次上傳結果到 n8n webhook:', global.lastUploadResult);
-        } else {
-          console.log('[TEST-WEBHOOK] 尚無任何成功上傳結果可發送');
-        }
+        const fakeData = {
+          videoId: 'Aq8bVuBp04',
+          taskId: 'test-task',
+          status: 'completed',
+          uploadedFileIndex: global.lastUploadedFileIndex || 10,
+          taiwanTimestamp: new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })
+        };
+        await fetch(N8N_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(fakeData)
+        });
+        console.log(`[TEST-WEBHOOK] 已發送假資料到 n8n webhook:`, fakeData);
       } catch (e) {
         console.error('[TEST-WEBHOOK] 發送失敗:', e);
       }
