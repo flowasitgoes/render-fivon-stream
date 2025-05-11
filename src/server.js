@@ -12,6 +12,8 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 // 存储上传任务状态
 const uploadTasks = new Map();
 
+const N8N_WEBHOOK_URL = 'https://flowasitgoes.app.n8n.cloud/webhook-test/youtube-upload-callback';
+
 // Google Drive confirm token 流程
 async function getGoogleDriveStream(driveUrl) {
   const urlObj = new URL(driveUrl);
@@ -89,9 +91,15 @@ async function processUpload(taskId, driveUrl, youtubeUploadUrl, fileType) {
     const uploadEndTime = new Date();
     console.log(`[${taskId}] 上传结束时间: ${uploadEndTime.toISOString()}`);
 
-    if (!uploadRes.ok) {
-      const errText = await uploadRes.text();
-      throw new Error('Upload failed: ' + errText);
+    let videoId = null;
+    let uploadResJson = null;
+    if (uploadRes.ok) {
+      try {
+        uploadResJson = await uploadRes.json();
+        videoId = uploadResJson.id;
+      } catch (e) {
+        console.error(`[${taskId}] 解析 YouTube 回應失敗:`, e);
+      }
     }
 
     uploadTasks.set(taskId, {
@@ -99,8 +107,27 @@ async function processUpload(taskId, driveUrl, youtubeUploadUrl, fileType) {
       startTime,
       uploadStartTime,
       uploadEndTime,
-      result: 'success'
+      result: 'success',
+      videoId
     });
+
+    // POST 給 n8n webhook
+    if (videoId) {
+      try {
+        await fetch(N8N_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            videoId,
+            taskId,
+            status: 'completed'
+          })
+        });
+        console.log(`[${taskId}] 已通知 n8n webhook，videoId: ${videoId}`);
+      } catch (e) {
+        console.error(`[${taskId}] 通知 n8n webhook 失敗:`, e);
+      }
+    }
 
   } catch (error) {
     console.error(`[${taskId}] 上传失败:`, error);
