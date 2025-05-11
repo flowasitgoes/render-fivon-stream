@@ -140,9 +140,6 @@ async function processUpload(taskId, driveUrl, youtubeUploadUrl, fileType, uploa
   }
 }
 
-// 全域暫存最近一次 /upload 的 uploadedFileIndex
-global.lastUploadedFileIndex = 10;
-
 app.get('/upload', async (req, res) => {
   const now = new Date();
   const uptimeSec = Math.floor((now - serverStartTime) / 1000);
@@ -177,8 +174,6 @@ app.get('/upload', async (req, res) => {
 
   // 异步处理上传
   processUpload(taskId, driveUrl, youtubeUploadUrl, fileType, uploadedFileIndex);
-
-  global.lastUploadedFileIndex = uploadedFileIndex;
 });
 
 // 新增状态查询接口
@@ -238,7 +233,7 @@ app.post('/test-webhook', (req, res) => {
           videoId: 'Aq8bVuBp04',
           taskId: 'test-task',
           status: 'completed',
-          uploadedFileIndex: global.lastUploadedFileIndex || 10,
+          uploadedFileIndex: 8,
           taiwanTimestamp: new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })
         };
         await fetch(N8N_WEBHOOK_URL, {
