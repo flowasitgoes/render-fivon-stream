@@ -12,7 +12,7 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 // 存储上传任务状态
 const uploadTasks = new Map();
 
-const N8N_WEBHOOK_URL = 'https://flowasitgoes.app.n8n.cloud/webhook/youtube-upload-callback';
+const N8N_WEBHOOK_URL = 'https://flowasitgoes.app.n8n.cloud/webhook-test/youtube-upload-callback';
 
 // Google Drive confirm token 流程
 async function getGoogleDriveStream(driveUrl) {
@@ -215,6 +215,36 @@ app.get('/health', (req, res) => {
     uptimeSec,
     statusMsg
   });
+});
+
+// 測試 webhook 的 POST API
+app.post('/test-webhook', (req, res) => {
+  res.status(200).json({ message: 'Webhook test started' });
+
+  // 啟動一個定時器，每20秒發送一次假資料
+  if (!global.webhookTestInterval) {
+    global.webhookTestInterval = setInterval(async () => {
+      try {
+        const fakeData = {
+          videoId: 'Aq8bVuBp04',
+          taskId: 'test-task',
+          status: 'completed',
+          taiwanTimestamp: new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })
+        };
+        await fetch(N8N_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(fakeData)
+        });
+        console.log(`[TEST-WEBHOOK] 已發送假資料到 n8n webhook:`, fakeData);
+      } catch (e) {
+        console.error('[TEST-WEBHOOK] 發送失敗:', e);
+      }
+    }, 20000);
+    console.log('[TEST-WEBHOOK] 測試 webhook 定時器已啟動，每20秒發送一次');
+  } else {
+    console.log('[TEST-WEBHOOK] 測試 webhook 定時器已存在');
+  }
 });
 
 const PORT = process.env.PORT || 3000;
