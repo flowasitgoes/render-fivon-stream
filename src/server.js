@@ -166,29 +166,46 @@ app.get('/', (req, res) => {
 
 const serverStartTime = new Date();
 
+// app.get('/health', (req, res) => {
+//   const now = new Date();
+//   const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+//   const userAgent = req.headers['user-agent'] || '';
+//   const uptimeSec = Math.floor((now - serverStartTime) / 1000);
+
+//   let statusMsg = '';
+//   if (uptimeSec < 60) {
+//     statusMsg = 'COLD START: 伺服器剛被喚醒';
+//   } else {
+//     statusMsg = 'WARM: 伺服器已運作 ' + uptimeSec + ' 秒';
+//   }
+
+//   console.log(`[HEALTH] ${now.toISOString()} | IP: ${ip} | UA: ${userAgent} | ${statusMsg}`);
+
+//   res.status(200).json({
+//     status: 'alive',
+//     time: now.toISOString(),
+//     serverStartTime: serverStartTime.toISOString(),
+//     uptimeSec,
+//     statusMsg
+//   });
+// });
+
+let isAwake = false; // 初始是休眠
+
 app.get('/health', (req, res) => {
-  const now = new Date();
-  const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-  const userAgent = req.headers['user-agent'] || '';
-  const uptimeSec = Math.floor((now - serverStartTime) / 1000);
-
-  let statusMsg = '';
-  if (uptimeSec < 60) {
-    statusMsg = 'COLD START: 伺服器剛被喚醒';
+  if (isAwake) {
+    res.status(200).send('awake');
   } else {
-    statusMsg = 'WARM: 伺服器已運作 ' + uptimeSec + ' 秒';
+    res.status(503).send('sleeping');
   }
-
-  console.log(`[HEALTH] ${now.toISOString()} | IP: ${ip} | UA: ${userAgent} | ${statusMsg}`);
-
-  res.status(200).json({
-    status: 'alive',
-    time: now.toISOString(),
-    serverStartTime: serverStartTime.toISOString(),
-    uptimeSec,
-    statusMsg
-  });
 });
+
+// 手動喚醒
+app.get('/wake', (req, res) => {
+  isAwake = true;
+  res.send('Waking up server');
+});
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Uploader server running on port ${PORT}`));
