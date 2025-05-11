@@ -56,7 +56,7 @@ function normalizeDropboxUrl(url) {
 }
 
 // 异步上传处理函数
-async function processUpload(taskId, driveUrl, youtubeUploadUrl, fileType) {
+async function processUpload(taskId, driveUrl, youtubeUploadUrl, fileType, uploadedFileIndex) {
   const startTime = new Date();
   console.log(`[${taskId}] 开始下载时间: ${startTime.toISOString()}`);
   
@@ -120,10 +120,11 @@ async function processUpload(taskId, driveUrl, youtubeUploadUrl, fileType) {
           body: JSON.stringify({
             videoId,
             taskId,
-            status: 'completed'
+            status: 'completed',
+            uploadedFileIndex
           })
         });
-        console.log(`[${taskId}] 已通知 n8n webhook，videoId: ${videoId}`);
+        console.log(`[${taskId}] 已通知 n8n webhook，videoId: ${videoId}, uploadedFileIndex: ${uploadedFileIndex}`);
       } catch (e) {
         console.error(`[${taskId}] 通知 n8n webhook 失敗:`, e);
       }
@@ -150,7 +151,7 @@ app.get('/upload', async (req, res) => {
   }
   console.log(`[UPLOAD] ${now.toISOString()} | ${statusMsg}`);
 
-  const { driveUrl, youtubeUploadUrl, fileType } = req.query;
+  const { driveUrl, youtubeUploadUrl, fileType, uploadedFileIndex } = req.query;
 
   if (!driveUrl || !youtubeUploadUrl) {
     return res.status(400).send('Missing driveUrl or youtubeUploadUrl');
@@ -160,6 +161,9 @@ app.get('/upload', async (req, res) => {
   console.log(`[${taskId}] 收到新的上传请求`);
   console.log(`[${taskId}] Drive URL:`, driveUrl);
   console.log(`[${taskId}] YouTube Upload URL:`, youtubeUploadUrl);
+  if (uploadedFileIndex) {
+    console.log(`[${taskId}] uploadedFileIndex:`, uploadedFileIndex);
+  }
 
   // 立即返回任务ID
   res.status(202).json({
@@ -169,7 +173,7 @@ app.get('/upload', async (req, res) => {
   });
 
   // 异步处理上传
-  processUpload(taskId, driveUrl, youtubeUploadUrl, fileType);
+  processUpload(taskId, driveUrl, youtubeUploadUrl, fileType, uploadedFileIndex);
 });
 
 // 新增状态查询接口
