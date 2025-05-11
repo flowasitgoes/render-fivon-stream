@@ -108,9 +108,17 @@ async function processUpload(taskId, driveUrl, youtubeUploadUrl, fileType, uploa
       uploadStartTime,
       uploadEndTime,
       result: 'success',
-      videoId
+      videoId,
+      uploadedFileIndex
     });
-
+    // 記錄最新成功上傳結果
+    global.lastUploadResult = {
+      videoId,
+      taskId,
+      status: 'completed',
+      uploadedFileIndex,
+      taiwanTimestamp: new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })
+    };
     // POST 給 n8n webhook
     if (videoId) {
       try {
@@ -225,22 +233,19 @@ app.get('/health', (req, res) => {
 app.post('/test-webhook', (req, res) => {
   res.status(200).json({ message: 'Webhook test started' });
 
-  // 啟動一個定時器，每20秒發送一次假資料
   if (!global.webhookTestInterval) {
     global.webhookTestInterval = setInterval(async () => {
       try {
-        const fakeData = {
-          videoId: 'Aq8bVuBp04',
-          taskId: 'test-task',
-          status: 'completed',
-          taiwanTimestamp: new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })
-        };
-        await fetch(N8N_WEBHOOK_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(fakeData)
-        });
-        console.log(`[TEST-WEBHOOK] 已發送假資料到 n8n webhook:`, fakeData);
+        if (global.lastUploadResult) {
+          await fetch(N8N_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(global.lastUploadResult)
+          });
+          console.log('[TEST-WEBHOOK] 已發送最近一次上傳結果到 n8n webhook:', global.lastUploadResult);
+        } else {
+          console.log('[TEST-WEBHOOK] 尚無任何成功上傳結果可發送');
+        }
       } catch (e) {
         console.error('[TEST-WEBHOOK] 發送失敗:', e);
       }
